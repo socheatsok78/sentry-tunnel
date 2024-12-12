@@ -2,5 +2,7 @@
   "tasks": {
     "dev": "deno run --watch --allow-env --allow-net main.ts"
   },
-  "imports": {}
+  "imports": {
+    "@std/log": "jsr:@std/log@^0.224.11"
+  }
 }
