@@ -9,16 +9,19 @@
 
 import * as log from "@std/log";
 
-type SentryHeaderStruct = {
+type SentryEnvelopeHeaderStruct = {
   dsn: string;
-  event_id: string;
   sent_at: string;
+  event_id: string;
   sdk: {
     name: string;
     version: string;
   };
 }
 
+type SentryEnvelopeTypeStruct = {
+  type: string;
+}
 
 if (import.meta.main) {
   log.setup({
@@ -46,8 +49,9 @@ if (import.meta.main) {
     try {
       const envelopeBytes = await req.arrayBuffer();
       const envelope = new TextDecoder().decode(envelopeBytes);
-      const piece = envelope.split("\n")[0];
-      const header: SentryHeaderStruct = JSON.parse(piece);
+      const pieces = envelope.split("\n");
+      const header: SentryEnvelopeHeaderStruct = JSON.parse(pieces[0]);
+      const type: SentryEnvelopeTypeStruct = JSON.parse(pieces[1]);
 
       if (!header.dsn) {
         log.error("No DSN found in the envelope header");
@@ -63,21 +67,20 @@ if (import.meta.main) {
         return new Response(JSON.stringify({ error: "No project ID found in the DSN" }), { status: 400 });
       }
 
-      // Copy headers and set Host and Origin to the Sentry DSN
-      const headers = new Headers(req.headers);
-      headers.set("Host", dsn.host);
-      headers.set("Origin", dsn.origin);
-
       // Tunnel the envelope to Sentry
       const upstream_sentry_url = `${dsn.origin}/api/${project_id}/envelope/`;
 
-      log.info(`Tunneling to sentry ${dsn}`);
-      log.info("Forwarding envelope", { sent_at: header.sent_at, event_id: header.event_id, sdk: header.sdk });
+      log.info("Forwarding envelope to sentry", {
+        sent_at: header.sent_at,
+        event_id: header.event_id,
+        type: type.type,
+        sdk: header.sdk,
+        message_size: envelopeBytes.byteLength,
+      });
 
       // Send the envelope to Sentry
       return fetch(upstream_sentry_url, {
         method: "POST",
-        headers: headers,
         body: envelopeBytes,
       })
     } catch (e) {
