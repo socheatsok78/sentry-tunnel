@@ -75,7 +75,7 @@ if (import.meta.main) {
         event_id: header.event_id,
         type: type.type,
         sdk: header.sdk,
-        message_size: envelopeBytes.byteLength,
+        envelope_byte_length: envelopeBytes.byteLength,
       });
 
       // Send the envelope to Sentry
