@@ -26,5 +26,38 @@ Sentry.init({
 
 Once configured, all events will be sent to the /tunnel endpoint. This solution, however, requires an additional configuration on the server, as the events now need to be parsed and redirected to Sentry.
 
+## Metrics
+The tunnel server exposes the following metrics:
+
+```
+# HELP sentry_envelope_accepted The number of envelopes accepted by the tunnel
+# TYPE sentry_envelope_accepted counter
+sentry_envelope_accepted 0
+# HELP sentry_envelope_forwarded The number of envelopes forwarded by the tunnel
+# TYPE sentry_envelope_forwarded counter
+sentry_envelope_forwarded 0
+# HELP sentry_envelope_forwarded_error The number of envelopes that failed to be forwarded by the tunnel
+# TYPE sentry_envelope_forwarded_error counter
+sentry_envelope_forwarded_error 0
+# HELP sentry_envelope_rejected The number of envelopes rejected by the tunnel
+# TYPE sentry_envelope_rejected counter
+sentry_envelope_rejected 0
+```
+
+## Benchmark
+The benchmark was done using [wrk](https://github.com/wg/wrk) running on a local machine.
+
+```
+Running 30s test @ http://localhost:8080/tunnel
+  12 threads and 400 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     5.74ms    5.41ms 100.42ms   86.42%
+    Req/Sec     6.51k     1.24k   14.61k    77.06%
+  2337038 requests in 30.08s, 167.16MB read
+  Socket errors: connect 0, read 376, write 0, timeout 0
+Requests/sec:  77685.87
+Transfer/sec:      5.56MB
+```
+
 <!-- Links -->
 [sentry-tunnel-docs]: https://docs.sentry.io/platforms/javascript/troubleshooting/#using-the-tunnel-option
