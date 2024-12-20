@@ -1,0 +1,2 @@
+it:
+	go mod tidy
