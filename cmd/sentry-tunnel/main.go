@@ -11,6 +11,7 @@ import (
 	humanize "github.com/dustin/go-humanize"
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	sentrytunnel "github.com/socheatsok78/sentry-tunnel"
@@ -147,12 +148,16 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
+		envelopeID := uuid.New()
+		envelopeBytesH := humanize.Bytes(uint64(r.ContentLength))
+		level.Debug(logger).Log("msg", "Received envelope", "id", envelopeID.String(), "size", envelopeBytesH)
+
 		envelope, err := sentrytunnel.Parse(envelopeBytes)
 		if err != nil {
 			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Debug(logger).Log("msg", "Failed to parse envelope", "error", err)
+			level.Debug(logger).Log("msg", "Failed to parse envelope", "id", envelopeID.String(), "error", err)
 			return
 		}
 
@@ -162,18 +167,19 @@ func action(_ context.Context, cmd *cli.Command) error {
 			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Error(logger).Log("msg", "Failed to parse DSN", "error", err)
+			level.Error(logger).Log("msg", "Failed to parse envelope DSN", "id", envelopeID.String(), "error", err)
 			return
 		}
 
 		// Check if the DSN is trusted, it is possible for trustedDSNs to be empty
 		// If trustedDSNs is empty, we trust all DSNs
 		if len(trustedDSNs) > 0 {
+			level.Debug(logger).Log("msg", "Checking if the DSN is trusted", "id", envelopeID.String(), "dsn", dsn.Host+dsn.Path)
 			if err := isTrustedDSN(dsn, trustedDSNs); err != nil {
 				SentryEnvelopeRejected.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-				level.Error(logger).Log("msg", "Rejected envelope", "error", err)
+				level.Error(logger).Log("msg", "Rejected envelope", "id", envelopeID.String(), "error", err)
 				return
 			}
 		}
@@ -185,14 +191,13 @@ func action(_ context.Context, cmd *cli.Command) error {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Error(logger).Log("msg", "Failed to forward envelope to Sentry", "error", err)
+			level.Error(logger).Log("msg", "Failed to forward envelope to Sentry", "id", envelopeID.String(), "error", err)
 			return
 		}
 
-		envelopeBytesH := humanize.Bytes(uint64(len(envelopeBytes)))
-		level.Debug(logger).Log("msg", "Forwarding envelope to Sentry", "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
-
 		SentryEnvelopeForwardedSuccess.Inc()
+		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "id", envelopeID.String(), "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
+
 		w.WriteHeader(200)
 		w.Write([]byte(`{"status":"ok"}`))
 	}))
