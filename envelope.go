@@ -31,57 +31,62 @@ type sdk struct {
 }
 
 func Parse(bytes []byte) (*Envelope, error) {
-	envelopeStr := string(bytes)
-	lines := strings.SplitN(envelopeStr, "\n", 3)
+	envelope := &Envelope{}
+	err := Unmarshal(bytes, envelope)
+	if err != nil {
+		return nil, err
+	}
+	return envelope, nil
+}
+
+func Unmarshal(bytes []byte, envelope *Envelope) error {
+	lines := strings.SplitN(string(bytes), "\n", 3)
 
 	// Ensure the envelope has at least 3 lines
 	// The first line is the header, the second line is the type, and the third line is the body
 	if len(lines) < 3 {
-		return nil, fmt.Errorf("error parsing envelope")
+		return fmt.Errorf("error parsing envelope")
 	}
 
 	// Parse the envelope header
 	envelopeHeader, err := parseEnvelopeHeader([]byte(lines[0]))
 	if err != nil {
-		return nil, fmt.Errorf("error parsing envelope header")
+		return err
 	}
 
 	// Parse the envelope type
 	envelopeType, err := parseEnvelopeType([]byte(lines[1]))
 	if err != nil {
-		return nil, fmt.Errorf("error parsing envelope type")
+		return err
 	}
 
-	// Create the envelope object
-	envelope := Envelope{
-		Header: *envelopeHeader,
-		Type:   envelopeType,
-		Body:   envelopeMessageBody(lines[2]),
-	}
+	envelope.Header = *envelopeHeader
+	envelope.Type = envelopeType
+	envelope.Body = envelopeMessageBody(lines[2])
 
-	return &envelope, nil
+	return nil
 }
 
 // Parse parses the given bytes into an EnvelopeHeader
 func parseEnvelopeHeader(bytes []byte) (*envelopeHeader, error) {
-	EnvelopeHeader := &envelopeHeader{}
+	envelopeHeader := &envelopeHeader{}
 
-	err := json.Unmarshal(bytes, EnvelopeHeader)
+	err := json.Unmarshal(bytes, envelopeHeader)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing envelope header: %w", err)
+		return nil, fmt.Errorf("error parsing envelope header")
 	}
 
-	return EnvelopeHeader, nil
+	return envelopeHeader, nil
 }
 
 // Parse parses the given bytes into an EnvelopeMessageType
 func parseEnvelopeType(bytes []byte) (envelopeMessageType, error) {
-	EnvelopeMessageType := envelopeMessageType{}
+	envelopeMessageType := envelopeMessageType{}
 
-	err := json.Unmarshal(bytes, &EnvelopeMessageType)
+	err := json.Unmarshal(bytes, &envelopeMessageType)
 	if err != nil {
-		return EnvelopeMessageType, fmt.Errorf("error parsing envelope type: %w", err)
+		return envelopeMessageType, fmt.Errorf("error parsing envelope type")
 	}
 
-	return EnvelopeMessageType, nil
+	return envelopeMessageType, nil
 }

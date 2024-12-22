@@ -1,7 +1,6 @@
 package sentrytunnel
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -47,8 +46,6 @@ func TestParse(t *testing.T) {
 					t.Errorf("expected error: %s, got: %s", test.expectedErr, err)
 				}
 			}
-
-			fmt.Println(envelope)
 
 			if envelope != nil {
 				if test.expected == nil {

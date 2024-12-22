@@ -1,8 +1,14 @@
 it:
 	go mod tidy
 
-cli:
-	go run cmd/sentry-tunnel/main.go --help --trusted-sentry-dsn "http://host.docker.internal:8081/0"
+test:
+	go test -v ./...
+
+run:
+	go run cmd/sentry-tunnel/main.go --trusted-sentry-dsn=http://localhost:8080 
+
+build:
+	go build -o bin/sentry-tunnel cmd/sentry-tunnel/main.go
 
 .PHONY: sample
 sample:

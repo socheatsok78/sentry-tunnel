@@ -3,6 +3,7 @@ module github.com/socheatsok78/sentry-tunnel
 go 1.23.3
 
 require (
+	github.com/dustin/go-humanize v1.0.1
 	github.com/go-kit/log v0.2.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/urfave/cli/v3 v3.0.0-beta1
