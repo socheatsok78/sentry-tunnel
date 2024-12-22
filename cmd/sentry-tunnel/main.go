@@ -163,7 +163,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 				SentryEnvelopeRejected.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-				level.Debug(logger).Log("msg", "Rejected envelope", "error", err)
+				level.Error(logger).Log("msg", "Rejected envelope", "error", err)
 				return
 			}
 		}
@@ -173,7 +173,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Debug(logger).Log("msg", "Failed to parse DSN", "error", err)
+			level.Error(logger).Log("msg", "Failed to parse DSN", "error", err)
 			return
 		}
 
@@ -183,12 +183,12 @@ func action(_ context.Context, cmd *cli.Command) error {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-			level.Debug(logger).Log("msg", "Failed to forward envelope to Sentry", "error", err)
+			level.Error(logger).Log("msg", "Failed to forward envelope to Sentry", "error", err)
 			return
 		}
 
 		envelopeBytesH := humanize.Bytes(uint64(len(envelopeBytes)))
-		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
+		level.Debug(logger).Log("msg", "Forwarding envelope to Sentry", "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
 
 		SentryEnvelopeForwardedSuccess.Inc()
 		w.WriteHeader(200)
