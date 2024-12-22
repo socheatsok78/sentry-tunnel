@@ -26,6 +26,26 @@ Sentry.init({
 
 Once configured, all events will be sent to the /tunnel endpoint. This solution, however, requires an additional configuration on the server, as the events now need to be parsed and redirected to Sentry.
 
+## Usage
+
+```
+NAME:
+   sentry-tunnel - A tunneling service for Sentry
+
+USAGE:
+   sentry-tunnel [global options]
+
+VERSION:
+   dev
+
+GLOBAL OPTIONS:
+   --listen-addr value                                        The address to listen on (default: ":8080")
+   --log-level value                                          Set the log level (default: "info")
+   --trusted-sentry-dsn value [ --trusted-sentry-dsn value ]  A list of Sentry DSNs that are trusted by the tunnel. The DSNs must not contain the public key and secret key. e.g. "https://public@sentry.example.com/1"
+   --help, -h                                                 show help
+   --version, -v                                              print the version
+```
+
 ## Metrics
 The tunnel server exposes the following metrics:
 
