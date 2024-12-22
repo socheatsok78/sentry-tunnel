@@ -147,12 +147,12 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
-		level.Debug(logger).Log("msg", "Received envelope", "size", humanize.Bytes(uint64(len(envelopeBytes))))
-
 		envelope, err := sentrytunnel.Parse(envelopeBytes)
 		if err != nil {
+			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			level.Debug(logger).Log("msg", "Failed to parse envelope", "error", err)
 			return
 		}
 
@@ -163,29 +163,32 @@ func action(_ context.Context, cmd *cli.Command) error {
 				SentryEnvelopeRejected.Inc()
 				w.WriteHeader(500)
 				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-				level.Warn(logger).Log("msg", "Rejected envelope", "error", err)
+				level.Debug(logger).Log("msg", "Rejected envelope", "error", err)
 				return
 			}
 		}
-
-		SentryEnvelopeAccepted.Inc()
 
 		dsn, err := url.Parse(envelope.Header.DSN)
 		if err != nil {
 			SentryEnvelopeRejected.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			level.Debug(logger).Log("msg", "Failed to parse DSN", "error", err)
 			return
 		}
-		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type)
+
+		SentryEnvelopeAccepted.Inc()
 
 		if err := sentrytunnel.Forward(envelope); err != nil {
-			level.Error(logger).Log("msg", "Failed to forward envelope to Sentry", "error", err)
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+			level.Debug(logger).Log("msg", "Failed to forward envelope to Sentry", "error", err)
 			return
 		}
+
+		envelopeBytesH := humanize.Bytes(uint64(len(envelopeBytes)))
+		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
 
 		SentryEnvelopeForwardedSuccess.Inc()
 		w.WriteHeader(200)
@@ -198,16 +201,18 @@ func action(_ context.Context, cmd *cli.Command) error {
 }
 
 func isTrustedDSN(dsn string, trustedDSNs []string) error {
+	dsnURL, err := url.Parse(dsn)
+	if err != nil {
+		return fmt.Errorf("invalid DSN: %s", dsn)
+	}
 	for _, trustedDSN := range trustedDSNs {
-		u, err := url.Parse(trustedDSN)
+		trustedUrl, err := url.Parse(trustedDSN)
 		if err != nil {
-			return fmt.Errorf("invalid DSN: %s", trustedDSN)
+			return fmt.Errorf("invalid trusted DSN: %s", trustedDSN)
 		}
-
-		if dsn == u.String() {
+		if dsnURL.Host+dsnURL.Path == trustedUrl.Host+trustedUrl.Path {
 			return nil
 		}
 	}
-
 	return fmt.Errorf("untrusted DSN: %s", dsn)
 }
