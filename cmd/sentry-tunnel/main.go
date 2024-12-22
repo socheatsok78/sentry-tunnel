@@ -156,18 +156,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
-		// Check if the DSN is trusted, it is possible for trustedDSNs to be empty
-		// If trustedDSNs is empty, we trust all DSNs
-		if len(trustedDSNs) > 0 {
-			if err := isTrustedDSN(envelope.Header.DSN, trustedDSNs); err != nil {
-				SentryEnvelopeRejected.Inc()
-				w.WriteHeader(500)
-				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
-				level.Error(logger).Log("msg", "Rejected envelope", "error", err)
-				return
-			}
-		}
-
+		// Parse the DSN into a URL object
 		dsn, err := url.Parse(envelope.Header.DSN)
 		if err != nil {
 			SentryEnvelopeRejected.Inc()
@@ -177,9 +166,22 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
+		// Check if the DSN is trusted, it is possible for trustedDSNs to be empty
+		// If trustedDSNs is empty, we trust all DSNs
+		if len(trustedDSNs) > 0 {
+			if err := isTrustedDSN(dsn, trustedDSNs); err != nil {
+				SentryEnvelopeRejected.Inc()
+				w.WriteHeader(500)
+				w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
+				level.Error(logger).Log("msg", "Rejected envelope", "error", err)
+				return
+			}
+		}
+
+		// Increment the SentryEnvelopeAccepted Prometheus counter
 		SentryEnvelopeAccepted.Inc()
 
-		if err := sentrytunnel.Forward(envelope); err != nil {
+		if err := sentrytunnel.Forward(dsn, envelope); err != nil {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
@@ -200,17 +202,13 @@ func action(_ context.Context, cmd *cli.Command) error {
 	return http.ListenAndServe(listenAddr, nil)
 }
 
-func isTrustedDSN(dsn string, trustedDSNs []string) error {
-	dsnURL, err := url.Parse(dsn)
-	if err != nil {
-		return fmt.Errorf("invalid DSN: %s", dsn)
-	}
+func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
 	for _, trustedDSN := range trustedDSNs {
 		trustedUrl, err := url.Parse(trustedDSN)
 		if err != nil {
 			return fmt.Errorf("invalid trusted DSN: %s", trustedDSN)
 		}
-		if dsnURL.Host+dsnURL.Path == trustedUrl.Host+trustedUrl.Path {
+		if dsn.Host+dsn.Path == trustedUrl.Host+trustedUrl.Path {
 			return nil
 		}
 	}
