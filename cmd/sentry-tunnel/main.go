@@ -187,19 +187,18 @@ func action(_ context.Context, cmd *cli.Command) error {
 			}
 		}
 
-		// Increment the SentryEnvelopeAccepted Prometheus counter
+		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "id", envelopeID.String(), "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
 		SentryEnvelopeAccepted.Inc()
 
-		if err := tunnel(dsn, envelope); err != nil {
+		// Tunnel the envelope to Sentry
+		if err := tunnel(dsn, envelopeBytes); err != nil {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
 			level.Error(logger).Log("msg", "Failed to forward envelope to Sentry", "id", envelopeID.String(), "error", err)
 			return
 		}
-
 		SentryEnvelopeForwardedSuccess.Inc()
-		level.Info(logger).Log("msg", "Forwarding envelope to Sentry", "id", envelopeID.String(), "dsn", dsn.Host+dsn.Path, "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "size", envelopeBytesH)
 
 		w.WriteHeader(200)
 		w.Write([]byte(`{"status":"ok"}`))
@@ -223,13 +222,12 @@ func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
 	return fmt.Errorf("untrusted DSN: %s", dsn)
 }
 
-func tunnel(dsn *url.URL, envelope *sentrytunnel.Envelope) error {
+func tunnel(dsn *url.URL, data []byte) error {
 	project := strings.TrimPrefix(dsn.Path, "/")
 	endpoint := dsn.Scheme + "://" + dsn.Host + "/api/" + project + "/envelope/"
 
 	// Create a new HTTP request
-	rr := bytes.NewReader(envelope.Body)
-	req, _ := http.NewRequest("POST", endpoint, rr)
+	req, _ := http.NewRequest("POST", endpoint, bytes.NewReader(data))
 	req.Header.Set("User-Agent", ApplicationUserAgent)
 
 	// Forward the request
