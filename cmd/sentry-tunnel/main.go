@@ -199,7 +199,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 			return
 		}
 
-		level.Info(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "dsn", dsn.Host+dsn.Path, "size", envelopeBytesH)
+		level.Debug(logger).Log("msg", "Successfully forwarded envelope to Sentry", "tunnel_id", tunnelID.String(), "event_id", envelope.Header.EventID, "type", envelope.Type.Type, "dsn", dsn.Host+dsn.Path, "size", envelopeBytesH)
 		SentryEnvelopeForwardedSuccess.Inc()
 
 		w.WriteHeader(200)
