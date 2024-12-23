@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/go-kit/log"
@@ -19,7 +21,8 @@ import (
 )
 
 var (
-	Version = "dev"
+	Version              = "dev"
+	ApplicationUserAgent = "sentry-tunnel/" + Version
 )
 
 var (
@@ -187,7 +190,7 @@ func action(_ context.Context, cmd *cli.Command) error {
 		// Increment the SentryEnvelopeAccepted Prometheus counter
 		SentryEnvelopeAccepted.Inc()
 
-		if err := sentrytunnel.Forward(dsn, envelope); err != nil {
+		if err := tunnel(dsn, envelope); err != nil {
 			SentryEnvelopeForwardedError.Inc()
 			w.WriteHeader(500)
 			w.Write([]byte(fmt.Sprintf(`{"error":"%s"}`, err.Error())))
@@ -218,4 +221,27 @@ func isTrustedDSN(dsn *url.URL, trustedDSNs []string) error {
 		}
 	}
 	return fmt.Errorf("untrusted DSN: %s", dsn)
+}
+
+func tunnel(dsn *url.URL, envelope *sentrytunnel.Envelope) error {
+	project := strings.TrimPrefix(dsn.Path, "/")
+	endpoint := dsn.Scheme + "://" + dsn.Host + "/api/" + project + "/envelope/"
+
+	// Create a new HTTP request
+	rr := bytes.NewReader(envelope.Body)
+	req, _ := http.NewRequest("POST", endpoint, rr)
+	req.Header.Set("User-Agent", ApplicationUserAgent)
+
+	// Forward the request
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to forward envelope: %w", err)
+	}
+
+	// Check the status code
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
 }

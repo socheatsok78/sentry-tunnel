@@ -3,27 +3,19 @@ package sentrytunnel
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 )
+
+type SentryDSN struct {
+	*url.URL
+}
 
 type Envelope struct {
 	Header envelopeHeader
 	Type   envelopeMessageType
 	Body   envelopeMessageBody
 }
-
-type envelopeHeader struct {
-	DSN     string `json:"dsn"`
-	EventID string `json:"event_id"`
-	SentAt  string `json:"sent_at"`
-	SDK     sdk    `json:"sdk"`
-}
-
-type envelopeMessageType struct {
-	Type string `json:"type"`
-}
-
-type envelopeMessageBody []byte
 
 type sdk struct {
 	Name    string `json:"name"`
@@ -90,3 +82,16 @@ func parseEnvelopeType(bytes []byte) (envelopeMessageType, error) {
 
 	return envelopeMessageType, nil
 }
+
+type envelopeHeader struct {
+	DSN     string `json:"dsn"`
+	EventID string `json:"event_id"`
+	SentAt  string `json:"sent_at"`
+	SDK     sdk    `json:"sdk"`
+}
+
+type envelopeMessageType struct {
+	Type string `json:"type"`
+}
+
+type envelopeMessageBody []byte
