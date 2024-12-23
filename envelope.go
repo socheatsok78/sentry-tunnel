@@ -15,6 +15,7 @@ type Envelope struct {
 	Header envelopeHeader
 	Type   envelopeMessageType
 	Body   envelopeMessageBody
+	Data   []byte
 }
 
 type sdk struct {
@@ -55,6 +56,7 @@ func Unmarshal(bytes []byte, envelope *Envelope) error {
 	envelope.Header = *envelopeHeader
 	envelope.Type = envelopeType
 	envelope.Body = envelopeMessageBody(lines[2])
+	envelope.Data = bytes
 
 	return nil
 }
